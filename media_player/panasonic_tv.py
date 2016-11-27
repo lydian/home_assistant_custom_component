@@ -8,11 +8,13 @@ import logging
 import socket
 import subprocess
 
-from homeassistant.components.media_player import SUPPORT_TURN_ON, DOMAIN
+import voluptuous as vol
+
+from homeassistant.components.media_player import SUPPORT_TURN_ON, DOMAIN, PLATFORM_SCHEMA
 from homeassistant.components.media_player import panasonic_viera
 from homeassistant.const import (
     CONF_HOST, CONF_NAME, STATE_OFF, STATE_ON, STATE_UNKNOWN)
-from homeassistant.helpers import validate_config
+import homeassistant.helpers.config_validation as cv
 
 CONF_PORT = panasonic_viera.CONF_PORT
 
@@ -20,8 +22,16 @@ _LOGGER = logging.getLogger(__name__)
 
 REQUIREMENTS = panasonic_viera.REQUIREMENTS
 
+DEFAULT_NAME = 'Panasonic Viera TV'
+DEFAULT_PORT = 55000
+
 SUPPORT_VIERATV = panasonic_viera.SUPPORT_VIERATV | SUPPORT_TURN_ON
 
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
+    vol.Required(CONF_HOST): cv.string,
+    vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
+    vol.Optional(CONF_PORT, default=DEFAULT_PORT): cv.port,
+})
 
 # pylint: disable=unused-argument
 def setup_platform(hass, config, add_devices, discovery_info=None):
@@ -42,13 +52,9 @@ def setup_platform(hass, config, add_devices, discovery_info=None):
         add_devices([MyPanasonicVieraTVDevice(name, remote)])
         return True
 
-    # Validate that all required config options are given
-    if not validate_config({DOMAIN: config}, {DOMAIN: [CONF_HOST]}, _LOGGER):
-        return False
-
     host = config.get(CONF_HOST, None)
-
     remote = RemoteControl(host, port)
+    
     try:
         remote.get_mute()
     except (socket.timeout, TimeoutError, OSError):
@@ -80,5 +86,5 @@ class MyPanasonicVieraTVDevice(panasonic_viera.PanasonicVieraTVDevice):
     def turn_on(self):
         value = subprocess.call([
             'irsend', '-d', '/var/run/lirc/lircd-lirc0',
-            'SEND_ONCE', 'panasonic', 'KEY_POWER'])
+            'SEND_ONCE', 'PANASONIC', 'KEY_POWER'])
         _LOGGER.debug('%s', value)
